@@ -289,6 +289,7 @@ body {
   margin-bottom: 1rem;
   overflow-y: auto;
   min-height: 300px;
+  max-height: 400px;
   font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.9rem;
   line-height: 1.4;

@@ -17,8 +17,8 @@ export function Providers(props: {
   return (
     <WagmiProvider config={config} initialState={props.initialState}>
       <QueryClientProvider client={queryClient}>
-      <RainbowKitProvider>
-        {props.children}
+        <RainbowKitProvider>
+            {props.children}
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
