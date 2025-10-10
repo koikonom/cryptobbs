@@ -1,9 +1,9 @@
 import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
-import {  hoodi } from 'wagmi/chains'
+import {  sepolia } from 'wagmi/chains'
 
 export function getConfig() {
   return createConfig({
-    chains: [hoodi],
+    chains: [sepolia],
     connectors: [
     ],
     storage: createStorage({
@@ -11,7 +11,7 @@ export function getConfig() {
     }),
     ssr: true,
     transports: {
-      [hoodi.id]: http(),
+      [sepolia.id]: http(),
     },
   })
 }
