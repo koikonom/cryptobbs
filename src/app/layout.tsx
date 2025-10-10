@@ -8,6 +8,10 @@ import { cookieToInitialState } from 'wagmi'
 import { getConfig } from '../wagmi'
 import { Providers } from './providers'
 
+
+import '@rainbow-me/rainbowkit/styles.css';
+
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
