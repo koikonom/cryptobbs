@@ -31,31 +31,26 @@ function ChatPage() {
     const channelRef = useRef<ReliableChannel<any> | null>(null);
     const seenMessages = useRef<Set<string>>(new Set());
     const MAX_MESSAGES = 1000;
-
+    
     useEffect(() => {
         return () => {
             isMounted.current = false;
         }
     }, []);
-
+    
     // Initialize Waku node
     useEffect( () => {
+        if (account.status !== 'connected') {
+            return;
+        }
         if (isInitializing.current) {
             console.log('   Already initializing, skipping...');
             return;
-          }
-          isInitializing.current = true;
+        }
+        isInitializing.current = true;
         console.log('Initializing Waku...');
         const initWaku = async () => {
-            const generateMessageHash = async (message: ChatMessage): Promise<string> => {
-                const content = `${message.timestamp}-${message.username}-${message.message}`;
-                const encoder = new TextEncoder();
-                const data = encoder.encode(content);
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            };
-
+            
             try {
                 // Create a Light Node
                 const wakuNode = await createLightNode({
@@ -65,7 +60,7 @@ function ChatPage() {
                 await wakuNode.waitForPeers([Protocols.LightPush, Protocols.Filter], 10000);
                 console.log("connected?", wakuNode.isConnected());
                 wakuNodeRef.current = wakuNode;
-
+                
                 // Subscribe to messages
                 const decoder = wakuNode.createDecoder({contentTopic: ct});
                 const encoder = wakuNode.createEncoder({ contentTopic: ct });
@@ -78,7 +73,7 @@ function ChatPage() {
                         const oldHashes = Array.from(seenMessages.current).slice(0, seenMessages.current.size - MAX_MESSAGES);
                         oldHashes.forEach(hash => seenMessages.current.delete(hash));
                     }
-
+                    
                     // decode your payload using the protobuf object previously created
                     const decodedMessage = DataPacket.decode(wakuMessage.payload) as any;
                     // Check if we've seen this message
@@ -93,69 +88,90 @@ function ChatPage() {
                         timestamp: decodedMessage.timestamp,
                         username: decodedMessage.username || 'Unknown',
                         message: decodedMessage.message
-                      }]);
-                      seenMessages.current.add(msgHash);
-
+                    }]);
+                    seenMessages.current.add(msgHash);
+                    
                 })
             } catch (error) {
                 console.log("error while connecting to waku", error);
                 isInitializing.current = false;
+                cleanup();
             }
         }
         initWaku();
         return () => {
-            console.log("cleaning up");
-            if (channelRef.current) {
-                channelRef.current.removeEventListener("message-received");
-                channelRef.current.stop();
-                channelRef.current = null;
-              }
-        
-              // Stop the Waku node
-              if (wakuNodeRef.current) {
-                wakuNodeRef.current.stop();
-                wakuNodeRef.current = null;
-              }
-
-              if (!isMounted.current) {
-                isMounted.current = false;
-              }
+            cleanup();
         }
-    }, []);
+    }, [account.status]);
     
+    // Handle disconnect and reconnect during the same session
     useEffect(() => {
-        console.log("messages", messages.length);
-    }, [messages]);
-
+        if (account.status === 'connected' && isInitializing.current) {
+            isInitializing.current = false;
+            return;
+        }
+        return () => {
+            cleanup();
+        }
+    }, [account.status]);
+    
+    const cleanup = () => {
+        console.log("cleaning up");
+        if (channelRef.current) {
+            channelRef.current.removeEventListener("message-received");
+            channelRef.current.stop();
+            channelRef.current = null;
+        }
+        
+        // Stop the Waku node
+        if (wakuNodeRef.current) {
+            wakuNodeRef.current.stop();
+            wakuNodeRef.current = null;
+        }
+        
+        if (!isMounted.current) {
+            isMounted.current = false;
+        }
+    };
+    
+    const generateMessageHash = async (message: ChatMessage): Promise<string> => {
+        const content = `${message.timestamp}-${message.username}-${message.message}`;
+        const encoder = new TextEncoder();
+        const data = encoder.encode(content);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+    
     const sendMessage = useCallback(async () => {
         if (!channelRef.current || !text.trim() || !account.address) {
-          console.log('Cannot send: node not ready or message empty');
-          console.log("node", channelRef.current);
-          console.log("text", text);
-          console.log("username", account.address);
-          return;
+            console.log('Cannot send: node not ready or message empty');
+            console.log("node", channelRef.current);
+            console.log("text", text);
+            console.log("username", account.address);
+            return;
         }
-    
+        
         try {
-          // Create the message object
-          const chatMessage = {
-            timestamp: Date.now(),
-            username: account.address,
-            message: text,
-          };
-    
-          // Encode with Protobuf
-          const protoMessage = DataPacket.create(chatMessage);
-          const serializedMessage = DataPacket.encode(protoMessage).finish();
-          const messageId = channelRef.current.send(serializedMessage);
-
-          console.log('Message sent:', chatMessage, messageId);
-          setText('');
+            // Create the message object
+            const chatMessage = {
+                timestamp: Date.now(),
+                username: account.address,
+                message: text,
+            };
+            
+            // Encode with Protobuf
+            const protoMessage = DataPacket.create(chatMessage);
+            const serializedMessage = DataPacket.encode(protoMessage).finish();
+            const messageId = channelRef.current.send(serializedMessage);
+            
+            console.log('Message sent:', chatMessage, messageId);
+            setText('');
         } catch (error) {
-          console.error('Failed to send message:', error);
+            console.error('Failed to send message:', error);
         }
-      }, [channelRef.current, text, account.address]);
-
+    }, [channelRef.current, text, account.address]);
+    
     return (
         <div className="container">
         <Header />
