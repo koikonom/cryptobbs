@@ -29,7 +29,7 @@ export default function ChatContainer() {
                 )}
                 {messages.map((message, index) => (
                     <div key={index} className="chat-message">
-                        <span className="timestamp"> [{new Date(message.timestamp).toUTCString()}]</span>
+                        <span className="timestamp"> [{new Date(message.timestamp).toUTCString()}] </span>
                         <span className="username">{message.username}: </span>
                         <span className="message-text">{message.message}</span>
                     </div>
@@ -46,6 +46,7 @@ export default function ChatContainer() {
                             disabled={!isConnected}
                             value={text}
                             onChange={(e) => setText(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
                         />
                         <button 
                             className="btn btn-primary" 
