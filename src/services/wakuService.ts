@@ -108,25 +108,24 @@ export class WakuService {
     private async handleMessage(event: any, topicName: string, dataPacket: any): Promise<void> {
         const wakuMessage = event.detail
         
-        // Cleanup old messages if we exceed limit - keeping exact same logic
+        // Cleanup old messages if we exceed limit
         if (this.seenMessages.size > this.MAX_MESSAGES) {
             const oldHashes = Array.from(this.seenMessages).slice(0, this.seenMessages.size - this.MAX_MESSAGES)
             oldHashes.forEach(hash => this.seenMessages.delete(hash))
         }
         
         try {
-            // decode your payload using the protobuf object previously created - keeping exact same setup
+            // decode your payload using the protobuf object previously created
             const decodedMessage = dataPacket.decode(wakuMessage.payload) as any
             
-            // Check if we've seen this message - keeping exact same logic
+            // Check if we've seen this message
             const msgHash = await this.generateMessageHash(decodedMessage)
             if (this.seenMessages.has(msgHash)) {
-                console.log('Duplicate message ignored:', msgHash)
                 return
             }
             this.seenMessages.add(msgHash)
             
-            console.log(decodedMessage.timestamp, decodedMessage.sender, decodedMessage.message)
+            // console.log(decodedMessage.timestamp, decodedMessage.sender, decodedMessage.message)
             
             const message = {
                 timestamp: decodedMessage.timestamp,
