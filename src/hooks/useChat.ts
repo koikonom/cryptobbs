@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useWaku } from './useWaku'
-import protobuf from 'protobufjs'
 
 export type ChatMessage = {
     timestamp: number
@@ -9,22 +8,22 @@ export type ChatMessage = {
     message: string
 }
 
-// Define Protobuf schema for messages - keeping exact same setup
-const DataPacket = new protobuf.Type('ChatMessage')
-    .add(new protobuf.Field('timestamp', 1, 'uint64'))
-    .add(new protobuf.Field('username', 2, 'string'))
-    .add(new protobuf.Field('message', 3, 'string'))
-
 export function useChat() {
     const account = useAccount()
     const chatTopic = "/cryptobbs/1/chat/proto"
-    const { isConnected, status, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku({ [chatTopic]: DataPacket })
+    const { isConnected, status, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [text, setText] = useState("")
     
     // Subscribe to messages from Waku service
     useEffect(() => {
-        const unsubscribe = subscribeToMessages(chatTopic, (message: ChatMessage) => {
+        const unsubscribe = subscribeToMessages(chatTopic, (decodedMessage: any) => {
+            // Transform the decoded message to ChatMessage format
+            const message: ChatMessage = {
+                timestamp: decodedMessage.timestamp,
+                username: decodedMessage.username || 'Unknown',
+                message: decodedMessage.message
+            }
             setMessages((msgs) => [...msgs, message])
         })
         

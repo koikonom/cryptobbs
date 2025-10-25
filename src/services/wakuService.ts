@@ -63,7 +63,7 @@ export class WakuService {
         }
     }
 
-    private async addTopics(topics: Record<string, any>): Promise<void> {
+    async addTopics(topics: Record<string, any>): Promise<void> {
         if (!this.node) {
             throw new Error('Waku node not initialized')
         }
@@ -101,6 +101,7 @@ export class WakuService {
         this.messageHandlers.set(topicName, new Set())
 
         channel.addEventListener("message-received", async (event: any) => {
+            console.log(`Message received on topic ${topicName}:`, event.detail)
             await this.handleMessage(event, topicName, dataPacket)
         })
     }
@@ -117,27 +118,28 @@ export class WakuService {
         try {
             // decode your payload using the protobuf object previously created
             const decodedMessage = dataPacket.decode(wakuMessage.payload) as any
+            console.log(`Decoded message for topic ${topicName}:`, decodedMessage)
             
             // Check if we've seen this message
             const msgHash = await this.generateMessageHash(decodedMessage)
             if (this.seenMessages.has(msgHash)) {
+                console.log('Message already seen, skipping:', msgHash)
                 return
             }
             this.seenMessages.add(msgHash)
             
             // console.log(decodedMessage.timestamp, decodedMessage.sender, decodedMessage.message)
             
-            const message = {
-                timestamp: decodedMessage.timestamp,
-                username: decodedMessage.username || 'Unknown',
-                message: decodedMessage.message
-            }
+            // Pass through the decoded message as-is to let each hook handle its own format
+            const message = decodedMessage
             
             // Notify all registered handlers for this topic
             const handlers = this.messageHandlers.get(topicName)
+            console.log(`Notifying ${handlers?.size || 0} handlers for topic ${topicName}`)
             if (handlers) {
                 handlers.forEach(handler => {
                     try {
+                        console.log('Calling handler with message:', message)
                         handler(message)
                     } catch (error) {
                         console.error('Error in message handler:', error)
@@ -151,8 +153,20 @@ export class WakuService {
     }
 
     private async generateMessageHash(message: any): Promise<string> {
-        // Keeping exact same hash generation logic
-        const content = `${message.timestamp}-${message.username}-${message.message}`
+        // Generate hash based on message type
+        let content: string
+        
+        if (message.id && message.threadId) {
+            // Forum message format
+            content = `${message.id}-${message.threadId}-${message.createdAt}-${message.createdBy}`
+        } else if (message.timestamp && message.username && message.message) {
+            // Chat message format
+            content = `${message.timestamp}-${message.username}-${message.message}`
+        } else {
+            // Fallback to JSON stringify
+            content = JSON.stringify(message)
+        }
+        
         const encoder = new TextEncoder()
         const data = encoder.encode(content)
         const hashBuffer = await crypto.subtle.digest('SHA-256', data)

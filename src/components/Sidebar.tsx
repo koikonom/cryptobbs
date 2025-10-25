@@ -21,6 +21,14 @@ function Sidebar() {
           </li>
           <li>
             <Link 
+              href="/forum" 
+              className={`nav-link ${pathname.startsWith('/forum') ? 'active' : ''}`}
+            >
+              FORUM
+            </Link>
+          </li>
+          <li>
+            <Link 
               href="/chat" 
               className={`nav-link ${pathname === '/chat' ? 'active' : ''}`}
             >
