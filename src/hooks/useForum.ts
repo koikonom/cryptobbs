@@ -48,7 +48,7 @@ export { MessagePacket, ThreadPacket }
 export function useForum() {
     const account = useAccount()
     const forumTopic = "/cryptobbs/1/forum/proto"
-    const { isConnected, status, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
+    const { isConnected, status: wakuStatus, peerCount, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
     const [threads, setThreads] = useState<ForumThread[]>(() => {
         const cachedThreads = threadCache.getSortedThreads()
         return cachedThreads
@@ -82,7 +82,7 @@ export function useForum() {
         return () => {
             unsubscribe()
         }
-    }, [subscribeToMessages, forumTopic])
+    }, [forumTopic, isConnected])
     
     
     const createThread = useCallback(async (name: string, firstMessageContent: string, subject?: string) => {
@@ -150,14 +150,11 @@ export function useForum() {
 
     const getStatusText = () => {
         if (account.status !== 'connected') {
-            return 'OFFLINE'
-        } else if (status === 'connecting') {
-            return 'CONNECTING...'
-        } else if (status === 'connected') {
-            return 'ONLINE'
-        } else {
-            return 'OFFLINE'
+            return 'WALLET DISCONNECTED'
         }
+        
+        // Use the Waku status which includes peer count
+        return wakuStatus
     }
 
     // Sort threads by most recently updated first

@@ -8,6 +8,7 @@ export function useWaku() {
     const account = useAccount()
     const [isConnected, setIsConnected] = useState(false)
     const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
+    const [peerCount, setPeerCount] = useState(0)
     const isInitializing = useRef(false)
     const isMounted = useRef(true)
 
@@ -48,6 +49,9 @@ export function useWaku() {
                 })
                 setIsConnected(true)
                 setStatus('connected')
+                
+                // Update peer count immediately after connection
+                setPeerCount(wakuService.getPeerCount())
             } catch (error) {
                 console.error("Error while connecting to waku", error)
                 isInitializing.current = false
@@ -74,6 +78,28 @@ export function useWaku() {
             }
         }
     }, [account.status])
+
+    // Update peer count periodically when connected
+    useEffect(() => {
+        if (!isConnected) {
+            setPeerCount(0)
+            return
+        }
+
+        const updatePeerCount = () => {
+            setPeerCount(wakuService.getPeerCount())
+        }
+
+        // Update immediately
+        updatePeerCount()
+
+        // Update every 5 seconds
+        const interval = setInterval(updatePeerCount, 5000)
+
+        return () => {
+            clearInterval(interval)
+        }
+    }, [isConnected])
 
     const sendMessage = async (topicName: string, message: any) => {
         if (!account.address) {
@@ -128,9 +154,25 @@ export function useWaku() {
         return unsubscribe
     }, [])
 
+    const getStatusText = () => {
+        if (account.status !== 'connected') {
+            return 'CONNECT WALLET'
+        }
+        
+        if (status === 'connected') {
+            return `ONLINE (${peerCount} peers)`
+        }
+        if (status === 'connecting') {
+            return 'CONNECTING...'
+        }
+        
+        return 'OFFLINE'
+    }
+
     return {
         isConnected,
-        status,
+        status: getStatusText(),
+        peerCount,
         sendMessage,
         subscribeToMessages,
         isReady: wakuService.isReady()

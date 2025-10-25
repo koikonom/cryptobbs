@@ -11,7 +11,7 @@ export function useThread(threadId: string) {
     // Encode thread ID to make it Waku-compatible (remove hyphens)
     const encodedThreadId = threadId.replace(/-/g, '')
     const messageTopic = `/cryptobbs/1/forum${encodedThreadId}/proto`
-    const { isConnected, status, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
+    const { isConnected, status: wakuStatus, peerCount, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
     const [messages, setMessages] = useState<ForumMessage[]>(() => messageCache.getMessages(threadId))
     const [isLoading, setIsLoading] = useState(false)
     const [forceUpdate, setForceUpdate] = useState(0)
@@ -175,14 +175,11 @@ export function useThread(threadId: string) {
 
     const getStatusText = () => {
         if (account.status !== 'connected') {
-            return 'OFFLINE'
-        } else if (status === 'connecting') {
-            return 'CONNECTING...'
-        } else if (status === 'connected') {
-            return 'ONLINE'
-        } else {
-            return 'OFFLINE'
+            return 'WALLET DISCONNECTED'
         }
+        
+        // Use the Waku status which includes peer count
+        return wakuStatus
     }
 
     // Sort messages by creation time (oldest first for threaded display)

@@ -2,10 +2,12 @@
 
 import { useAccount, useDisconnect } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useWaku } from '@/hooks/useWaku'
 
 function Header() {
   const account = useAccount()
   const { disconnect } = useDisconnect()
+  const { status: wakuStatus } = useWaku()
 
   const getStatusClass = () => {
     switch (account.status) {
@@ -19,14 +21,10 @@ function Header() {
   }
 
   const getStatusText = () => {
-    switch (account.status) {
-      case 'connected':
-        return '[ONLINE]'
-      case 'connecting':
-        return '[CONNECTING...]'
-      default:
-        return '[OFFLINE]'
+    if (account.status !== 'connected') {
+      return '[CONNECT WALLET]'
     }
+    return `[${wakuStatus}]`
   }
 
   return (
