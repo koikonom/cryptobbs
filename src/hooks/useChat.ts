@@ -17,17 +17,25 @@ export function useChat() {
     
     // Subscribe to messages from Waku service
     useEffect(() => {
-        const unsubscribe = subscribeToMessages(chatTopic, (decodedMessage: any) => {
-            // Transform the decoded message to ChatMessage format
-            const message: ChatMessage = {
-                timestamp: decodedMessage.timestamp,
-                username: decodedMessage.username || 'Unknown',
-                message: decodedMessage.message
-            }
-            setMessages((msgs) => [...msgs, message])
-        })
+        let unsubscribe = () => {}
         
-        return unsubscribe
+        const setupSubscription = async () => {
+            unsubscribe = await subscribeToMessages(chatTopic, (decodedMessage: any) => {
+                // Transform the decoded message to ChatMessage format
+                const message: ChatMessage = {
+                    timestamp: decodedMessage.timestamp,
+                    username: decodedMessage.username || 'Unknown',
+                    message: decodedMessage.message
+                }
+                setMessages((msgs) => [...msgs, message])
+            })
+        }
+        
+        setupSubscription()
+        
+        return () => {
+            unsubscribe()
+        }
     }, [subscribeToMessages, chatTopic])
     
     const sendMessage = useCallback(async () => {

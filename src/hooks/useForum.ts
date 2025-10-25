@@ -49,29 +49,52 @@ export function useForum() {
     const account = useAccount()
     const forumTopic = "/cryptobbs/1/forum/proto"
     const { isConnected, status, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
-    const [threads, setThreads] = useState<ForumThread[]>(() => threadCache.getSortedThreads())
+    const [threads, setThreads] = useState<ForumThread[]>(() => {
+        const cachedThreads = threadCache.getSortedThreads()
+        console.log('useForum initialized, cached threads:', cachedThreads.length)
+        return cachedThreads
+    })
     
     // Subscribe to thread updates from Waku
     useEffect(() => {
-        const unsubscribe = subscribeToMessages(forumTopic, (thread: ForumThread) => {
-            // Update cache
-            threadCache.addThread(thread)
-            
-            setThreads((currentThreads) => {
-                // Update existing thread or add new one
-                const existingIndex = currentThreads.findIndex(t => t.id === thread.id)
-                if (existingIndex >= 0) {
-                    const updated = [...currentThreads]
-                    updated[existingIndex] = thread
-                    return updated
-                } else {
-                    return [...currentThreads, thread]
-                }
-            })
-        })
+        console.log('Setting up forum thread subscription for topic:', forumTopic)
+        let unsubscribe = () => {}
         
-        return unsubscribe
+        const setupSubscription = async () => {
+            unsubscribe = await subscribeToMessages(forumTopic, (thread: ForumThread) => {
+                console.log('Received thread:', thread)
+                // Update cache
+                threadCache.addThread(thread)
+                
+                setThreads((currentThreads) => {
+                    console.log('Current threads before update:', currentThreads.length)
+                    // Update existing thread or add new one
+                    const existingIndex = currentThreads.findIndex(t => t.id === thread.id)
+                    if (existingIndex >= 0) {
+                        console.log('Updating existing thread:', thread.id)
+                        const updated = [...currentThreads]
+                        updated[existingIndex] = thread
+                        return updated
+                    } else {
+                        console.log('Adding new thread:', thread.id, 'Total threads:', currentThreads.length + 1)
+                        return [...currentThreads, thread]
+                    }
+                })
+            })
+        }
+        
+        setupSubscription()
+        
+        return () => {
+            unsubscribe()
+        }
     }, [subscribeToMessages, forumTopic])
+    
+    // Debug: Track threads state changes
+    useEffect(() => {
+        console.log('Threads state changed, count:', threads.length)
+        console.log('Threads:', threads)
+    }, [threads])
     
     const createThread = useCallback(async (name: string, firstMessageContent: string, subject?: string) => {
         if (!account.address) {

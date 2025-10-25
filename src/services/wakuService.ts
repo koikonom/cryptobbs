@@ -175,10 +175,20 @@ export class WakuService {
     }
 
     async sendMessage(topicName: string, message: any): Promise<void> {
+        console.log('sendMessage called for topic:', topicName)
+        console.log('isConnected:', this.isConnected)
+        console.log('channels.size:', this.channels.size)
+        console.log('isReady():', this.isReady())
+        console.log('Available channels:', Array.from(this.channels.keys()))
+        console.log('Available dataPackets:', Array.from(this.dataPackets.keys()))
+        
         const channel = this.channels.get(topicName)
         const dataPacket = this.dataPackets.get(topicName)
         
-        if (!channel || !dataPacket || !this.isConnected) {
+        console.log('Channel found:', !!channel)
+        console.log('DataPacket found:', !!dataPacket)
+        
+        if (!channel || !dataPacket || !this.isReady()) {
             throw new Error(`Waku not connected or topic '${topicName}' not found`)
         }
 
@@ -197,20 +207,47 @@ export class WakuService {
 
     // Subscribe to messages for a specific topic
     onMessage(topicName: string, handler: (message: any) => void): () => void {
+        console.log(`onMessage called for topic: ${topicName}`)
         let handlers = this.messageHandlers.get(topicName)
         if (!handlers) {
             handlers = new Set()
             this.messageHandlers.set(topicName, handlers)
+            console.log(`Created new handler set for topic: ${topicName}`)
         }
         handlers.add(handler)
+        console.log(`Added handler for topic: ${topicName}, total handlers: ${handlers.size}`)
         
         // Return unsubscribe function
         return () => {
+            console.log(`Unsubscribing from topic: ${topicName}`)
             const handlers = this.messageHandlers.get(topicName)
             if (handlers) {
                 handlers.delete(handler)
+                console.log(`Removed handler for topic: ${topicName}, remaining handlers: ${handlers.size}`)
             }
         }
+    }
+
+    // Initialize a single topic dynamically
+    async initializeTopic(topicName: string, dataPacket: any): Promise<void> {
+        if (!this.node) {
+            throw new Error('Waku node not initialized')
+        }
+        
+        // Check if topic is already initialized
+        if (this.channels.has(topicName)) {
+            console.log(`Topic ${topicName} already initialized`)
+            return
+        }
+        
+        console.log(`Initializing topic: ${topicName}`)
+        
+        // Store the dataPacket first
+        this.dataPackets.set(topicName, dataPacket)
+        
+        // Then setup the channel
+        await this.setupChannel(topicName, dataPacket)
+        console.log(`Topic ${topicName} initialized successfully`)
     }
 
     // Get connection status
@@ -252,3 +289,4 @@ export class WakuService {
 
 // Export singleton instance
 export const wakuService = new WakuService()
+

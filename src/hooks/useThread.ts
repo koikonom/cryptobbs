@@ -8,7 +8,9 @@ import { ForumMessage } from './useForum'
 
 export function useThread(threadId: string) {
     const account = useAccount()
-    const messageTopic = `/cryptobbs/1/forum-message/proto`
+    // Encode thread ID to make it Waku-compatible (remove hyphens)
+    const encodedThreadId = threadId.replace(/-/g, '')
+    const messageTopic = `/cryptobbs/1/forum${encodedThreadId}/proto`
     const { isConnected, status, sendMessage: wakuSendMessage, subscribeToMessages } = useWaku()
     const [messages, setMessages] = useState<ForumMessage[]>(() => messageCache.getMessages(threadId))
     const [isLoading, setIsLoading] = useState(false)
@@ -26,81 +28,90 @@ export function useThread(threadId: string) {
     // Subscribe to messages from this thread's topic
     useEffect(() => {
         console.log('Setting up message subscription for threadId:', threadId, 'topic:', messageTopic)
-        const unsubscribe = subscribeToMessages(messageTopic, async (message: ForumMessage) => {
-            console.log('Received message:', message, 'for threadId:', threadId)
-            // Only process messages for this specific thread
-            if (message.threadId !== threadId) {
-                console.log('Message filtered out - different threadId')
-                return
-            }
-            
-            // Check if we've already processed this message
-            if (processedMessages.current.has(message.id)) {
-                console.log('Message already processed, skipping:', message.id)
-                return
-            }
-            processedMessages.current.add(message.id)
-            
-            try {
-                // Check if content is already cached
-                let content: string
-                if (messageCache.hasContent(message.contentRef)) {
-                    content = messageCache.getContent(message.contentRef)!
-                } else {
-                    // Fetch content from Swarm
-                    content = await swarmService.downloadData(message.contentRef)
-                    // Cache the content
-                    messageCache.setContent(message.contentRef, content)
-                }
-                
-                const messageWithContent: ForumMessage = {
-                    ...message,
-                    content
-                }
-                
-                // Update cache
-                messageCache.addMessage(threadId, messageWithContent)
-                
-                setMessages((currentMessages) => {
-                    // Update existing message or add new one
-                    const existingIndex = currentMessages.findIndex(m => m.id === message.id)
-                    if (existingIndex >= 0) {
-                        console.log('Message already exists, updating:', message.id)
-                        const updated = [...currentMessages]
-                        updated[existingIndex] = messageWithContent
-                        return updated
-                    } else {
-                        console.log('Adding new message:', message.id, 'Total messages:', currentMessages.length + 1)
-                        const newMessages = [...currentMessages, messageWithContent]
-                        return newMessages
-                    }
-                })
-                
-                // Force update to ensure UI re-renders
-                setForceUpdate(prev => prev + 1)
-            } catch (error) {
-                console.error('Failed to fetch message content from Swarm:', error)
-                // Still add the message but without content
-                const messageWithoutContent = { ...message }
-                messageCache.addMessage(threadId, messageWithoutContent)
-                
-                setMessages((currentMessages) => {
-                    const existingIndex = currentMessages.findIndex(m => m.id === message.id)
-                    if (existingIndex >= 0) {
-                        return currentMessages
-                    } else {
-                        console.log('Adding message without content, total messages:', currentMessages.length + 1)
-                        return [...currentMessages, messageWithoutContent]
-                    }
-                })
-                
-                // Force update to ensure UI re-renders
-                setForceUpdate(prev => prev + 1)
-            }
-        })
+        let unsubscribe = () => {}
         
-        return unsubscribe
-    }, [subscribeToMessages, messageTopic, threadId])
+        const setupSubscription = async () => {
+            unsubscribe = await subscribeToMessages(messageTopic, async (message: ForumMessage) => {
+                console.log('Received message:', message, 'for threadId:', threadId)
+                // Only process messages for this specific thread
+                if (message.threadId !== threadId) {
+                    console.log('Message filtered out - different threadId')
+                    return
+                }
+                
+                // Check if we've already processed this message
+                if (processedMessages.current.has(message.id)) {
+                    console.log('Message already processed, skipping:', message.id)
+                    return
+                }
+                processedMessages.current.add(message.id)
+                
+                try {
+                    // Check if content is already cached
+                    let content: string
+                    if (messageCache.hasContent(message.contentRef)) {
+                        content = messageCache.getContent(message.contentRef)!
+                    } else {
+                        // Fetch content from Swarm
+                        content = await swarmService.downloadData(message.contentRef)
+                        // Cache the content
+                        messageCache.setContent(message.contentRef, content)
+                    }
+                    
+                    const messageWithContent: ForumMessage = {
+                        ...message,
+                        content
+                    }
+                    
+                    // Update cache
+                    messageCache.addMessage(threadId, messageWithContent)
+                    
+                    setMessages((currentMessages) => {
+                        // Update existing message or add new one
+                        const existingIndex = currentMessages.findIndex(m => m.id === message.id)
+                        if (existingIndex >= 0) {
+                            console.log('Message already exists, updating:', message.id)
+                            const updated = [...currentMessages]
+                            updated[existingIndex] = messageWithContent
+                            return updated
+                        } else {
+                            console.log('Adding new message:', message.id, 'Total messages:', currentMessages.length + 1)
+                            const newMessages = [...currentMessages, messageWithContent]
+                            return newMessages
+                        }
+                    })
+                    
+                    // Force update to ensure UI re-renders
+                    setForceUpdate(prev => prev + 1)
+                } catch (error) {
+                    console.error('Failed to fetch message content from Swarm:', error)
+                    // Still add the message but without content
+                    const messageWithoutContent = { ...message }
+                    messageCache.addMessage(threadId, messageWithoutContent)
+                    
+                    setMessages((currentMessages) => {
+                        const existingIndex = currentMessages.findIndex(m => m.id === message.id)
+                        if (existingIndex >= 0) {
+                            return currentMessages
+                        } else {
+                            console.log('Adding message without content, total messages:', currentMessages.length + 1)
+                            return [...currentMessages, messageWithoutContent]
+                        }
+                    })
+                    
+                    // Force update to ensure UI re-renders
+                    setForceUpdate(prev => prev + 1)
+                }
+            })
+        }
+        
+        setupSubscription()
+        
+        return () => {
+            console.log('Cleaning up subscription for threadId:', threadId)
+            unsubscribe()
+        }
+    }, [messageTopic, threadId])
 
     // Debug: Track messages state changes
     useEffect(() => {

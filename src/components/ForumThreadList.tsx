@@ -4,8 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForum } from '@/hooks/useForum'
 
+console.log('ForumThreadList component file loaded')
+
 export default function ForumThreadList() {
+    console.log('ForumThreadList component rendering')
     const { threads, createThread, status, isConnected } = useForum()
+    console.log('useForum hook result:', { threads: threads.length, status, isConnected })
     const router = useRouter()
     const [showCreateForm, setShowCreateForm] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
@@ -51,6 +55,7 @@ export default function ForumThreadList() {
         return new Date(timestamp).toLocaleString()
     }
 
+    console.log('ForumThreadList rendering with threads:', threads.length)
     return (
         <div className="forum-container">
             <div className="forum-header">
