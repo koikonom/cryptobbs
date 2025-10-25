@@ -19,24 +19,19 @@ export function useWaku() {
 
     // Initialize Waku node with all topics (forum and chat)
     useEffect(() => {
-        console.log('useWaku effect triggered, account status:', account.status)
         if (account.status !== 'connected') {
-            console.log('Account not connected, skipping Waku initialization')
             return
         }
         if (isInitializing.current) {
-            console.log('   Already initializing, skipping...')
             return
         }
         if (wakuService.isReady()) {
-            console.log('Waku service already ready')
             setIsConnected(true)
             setStatus('connected')
             return
         }
         
         isInitializing.current = true
-        console.log('Initializing Waku with all topics...')
         
         const initWaku = async () => {
             try {
@@ -51,11 +46,10 @@ export function useWaku() {
                     // '/cryptobbs/1/forum-message/proto': MessagePacket,
                     '/cryptobbs/1/chat/proto': ChatPacket
                 })
-                console.log('Waku initialization successful')
                 setIsConnected(true)
                 setStatus('connected')
             } catch (error) {
-                console.log("error while connecting to waku", error)
+                console.error("Error while connecting to waku", error)
                 isInitializing.current = false
                 await wakuService.cleanup()
             }
@@ -92,15 +86,12 @@ export function useWaku() {
 
         // Check if this is a thread-specific topic that needs dynamic initialization
         if (topicName.startsWith('/cryptobbs/1/forum') && topicName.endsWith('/proto') && !topicName.includes('/cryptobbs/1/forum/proto')) {
-            console.log('Thread-specific topic detected for sending, ensuring topic is initialized:', topicName)
             try {
                 // Initialize the thread-specific topic with MessagePacket
                 await wakuService.initializeTopic(topicName, MessagePacket)
-                console.log('Thread topic initialized successfully for sending:', topicName)
                 
                 // Wait a bit to ensure the topic is fully ready
                 await new Promise(resolve => setTimeout(resolve, 100))
-                console.log('Topic should be ready now')
             } catch (error) {
                 console.error('Failed to initialize thread topic for sending:', error)
                 throw error
@@ -117,22 +108,16 @@ export function useWaku() {
     }
 
     const subscribeToMessages = useCallback(async (topicName: string, handler: (message: any) => void) => {
-        console.log(`Subscribing to messages on topic: ${topicName}`)
-        console.log('Waku service ready:', wakuService.isReady())
-        
         // If Waku is not ready, wait for it
         if (!wakuService.isReady()) {
-            console.log('Waku not ready, waiting for initialization...')
             return () => {} // Return empty unsubscribe function
         }
         
         // Check if this is a thread-specific topic that needs dynamic initialization
         if (topicName.startsWith('/cryptobbs/1/forum') && topicName.endsWith('/proto') && !topicName.includes('/cryptobbs/1/forum/proto')) {
-            console.log('Thread-specific topic detected, ensuring topic is initialized:', topicName)
             try {
                 // Initialize the thread-specific topic with MessagePacket
                 await wakuService.initializeTopic(topicName, MessagePacket)
-                console.log('Thread topic initialized successfully:', topicName)
             } catch (error) {
                 console.error('Failed to initialize thread topic:', error)
                 return () => {} // Return empty unsubscribe function
@@ -140,7 +125,6 @@ export function useWaku() {
         }
         
         const unsubscribe = wakuService.onMessage(topicName, handler)
-        console.log('Subscription created, unsubscribe function:', !!unsubscribe)
         return unsubscribe
     }, [])
 

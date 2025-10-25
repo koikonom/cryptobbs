@@ -17,31 +17,20 @@ export function useThread(threadId: string) {
     const [forceUpdate, setForceUpdate] = useState(0)
     const processedMessages = useRef<Set<string>>(new Set())
     
-    // Debug: Log initial state
-    useEffect(() => {
-        console.log('useThread initialized for threadId:', threadId)
-        console.log('Initial messages from cache:', messageCache.getMessages(threadId))
-        console.log('Waku connection status:', { isConnected, status })
-        console.log('useWaku hook result:', { isConnected, status, subscribeToMessages: !!subscribeToMessages })
-    }, [threadId, isConnected, status, subscribeToMessages])
     
     // Subscribe to messages from this thread's topic
     useEffect(() => {
-        console.log('Setting up message subscription for threadId:', threadId, 'topic:', messageTopic)
         let unsubscribe = () => {}
-        
+
         const setupSubscription = async () => {
             unsubscribe = await subscribeToMessages(messageTopic, async (message: ForumMessage) => {
-                console.log('Received message:', message, 'for threadId:', threadId)
                 // Only process messages for this specific thread
                 if (message.threadId !== threadId) {
-                    console.log('Message filtered out - different threadId')
                     return
                 }
-                
+
                 // Check if we've already processed this message
                 if (processedMessages.current.has(message.id)) {
-                    console.log('Message already processed, skipping:', message.id)
                     return
                 }
                 processedMessages.current.add(message.id)
@@ -66,20 +55,18 @@ export function useThread(threadId: string) {
                     // Update cache
                     messageCache.addMessage(threadId, messageWithContent)
                     
-                    setMessages((currentMessages) => {
-                        // Update existing message or add new one
-                        const existingIndex = currentMessages.findIndex(m => m.id === message.id)
-                        if (existingIndex >= 0) {
-                            console.log('Message already exists, updating:', message.id)
-                            const updated = [...currentMessages]
-                            updated[existingIndex] = messageWithContent
-                            return updated
-                        } else {
-                            console.log('Adding new message:', message.id, 'Total messages:', currentMessages.length + 1)
-                            const newMessages = [...currentMessages, messageWithContent]
-                            return newMessages
-                        }
-                    })
+                        setMessages((currentMessages) => {
+                            // Update existing message or add new one
+                            const existingIndex = currentMessages.findIndex(m => m.id === message.id)
+                            if (existingIndex >= 0) {
+                                const updated = [...currentMessages]
+                                updated[existingIndex] = messageWithContent
+                                return updated
+                            } else {
+                                const newMessages = [...currentMessages, messageWithContent]
+                                return newMessages
+                            }
+                        })
                     
                     // Force update to ensure UI re-renders
                     setForceUpdate(prev => prev + 1)
@@ -89,15 +76,14 @@ export function useThread(threadId: string) {
                     const messageWithoutContent = { ...message }
                     messageCache.addMessage(threadId, messageWithoutContent)
                     
-                    setMessages((currentMessages) => {
-                        const existingIndex = currentMessages.findIndex(m => m.id === message.id)
-                        if (existingIndex >= 0) {
-                            return currentMessages
-                        } else {
-                            console.log('Adding message without content, total messages:', currentMessages.length + 1)
-                            return [...currentMessages, messageWithoutContent]
-                        }
-                    })
+                        setMessages((currentMessages) => {
+                            const existingIndex = currentMessages.findIndex(m => m.id === message.id)
+                            if (existingIndex >= 0) {
+                                return currentMessages
+                            } else {
+                                return [...currentMessages, messageWithoutContent]
+                            }
+                        })
                     
                     // Force update to ensure UI re-renders
                     setForceUpdate(prev => prev + 1)
@@ -108,15 +94,10 @@ export function useThread(threadId: string) {
         setupSubscription()
         
         return () => {
-            console.log('Cleaning up subscription for threadId:', threadId)
             unsubscribe()
         }
     }, [messageTopic, threadId])
 
-    // Debug: Track messages state changes
-    useEffect(() => {
-        console.log('Messages state changed, count:', messages.length)
-    }, [messages])
 
     // Cleanup processed messages set when component unmounts
     useEffect(() => {
@@ -164,7 +145,6 @@ export function useThread(threadId: string) {
             }
 
             // Publish message metadata via Waku
-            console.log('Sending message:', message, 'to topic:', messageTopic)
             await wakuSendMessage(messageTopic, message)
             
             // Add to cache immediately for instant UI update
