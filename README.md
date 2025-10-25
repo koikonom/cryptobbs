@@ -1,3 +1,19 @@
+### This part is written by a human :D 
+
+This is a hackathon project I wrote on my spare time. It was fun but it's far from doing anything useful.
+
+Challenges:
+ * Waku is very interesting, does what it says on the tin, but there is a huge gap between what the examples online say and what the current iteration of the SDK does. Also the async nature of the protocol makes decent UX a challenge, which is expected.
+ * Time.
+ * I don't know a lot of js/react/css/ts/etc so cursor wrote most of this. The only code I wrote was to figure out how the waku sdk works and then I just told the agent to use that as a basis for the rest.
+
+ Surprises:
+ * After getting waku to work I expected swarm to be a similarly bumpy experience. I was pleasantly surprised to see it worked out of the box.
+
+Anything below this line is not written by a human
+---
+
+
 # CryptoBBS
 
 A decentralized bulletin board system (BBS) built with Web3 technologies, featuring real-time chat and threaded forums. CryptoBBS combines the nostalgic aesthetic of classic terminal-based BBS systems with modern decentralized infrastructure.
